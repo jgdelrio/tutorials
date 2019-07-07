@@ -1,2 +1,0 @@
-Reuters-21578 downloaded from:
-http://kdd.ics.uci.edu/databases/reuters21578/reuters21578.html
