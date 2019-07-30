@@ -1,2 +1,7 @@
-# Ignore spacy models...
+# Ignore models...
+
+# Spacy
 Spacy*/
+
+# Pickle
+*.pickle
