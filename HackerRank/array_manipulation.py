@@ -34,7 +34,7 @@ def stdin_queries(operations):
     return queries
 
 
-def run_stdin():
+def hackerrank_run():
     """Run this function in HackerRank as they provide the input for their tests from stdin"""
     n, operations = read_stdin()
     queries = stdin_queries(operations)
