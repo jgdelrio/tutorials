@@ -1,4 +1,6 @@
 """
+
+
 Starting with a 1-indexed array of zeros and a list of operations, for each operation add a value
 to each of the array element between two given indices, inclusive. Once all operations have been
 performed, return the maximum value in your array.
@@ -20,6 +22,9 @@ The largest value is 10 after all operations are performed.
 """
 #!/bin/python3
 from sys import stdin
+
+# Define input and output
+TEST1 = ([5, ["1 2 100", "2 5 100", "3 4 100"]], 200)
 
 
 def read_stdin():
@@ -61,9 +66,6 @@ def array_manip(n, queries):
 
     return max(array)
 
-
-# Define input and output
-TEST1 = ([5, ["1 2 100", "2 5 100", "3 4 100"]], 200)
 
 if __name__ == '__main__':
     assert(array_manip(*TEST1[0]) == TEST1[1])      # assert result equals expected output

@@ -1,4 +1,6 @@
 """
+
+
 Complete the preOrder function in your editor below, which has 1 parameter:
 
 a pointer to the root of a binary tree.
@@ -27,6 +29,9 @@ Node is defined as:
     self.info (the value of the node)
 """
 
+# Define input and output
+TEST1 = ([6, "1 2 5 3 6 4"], "1 2 5 3 4 6")
+
 
 def next_move(result, node):
     if node.left is not None:
@@ -49,5 +54,3 @@ def preOrder(root):
 
     print(' '.join(map(str, result)))
 
-
-TEST1 = ([6, "1 2 5 3 6 4"], "1 2 5 3 4 6")

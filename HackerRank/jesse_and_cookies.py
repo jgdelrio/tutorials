@@ -1,4 +1,6 @@
 """
+Data Structures > Heap
+
 Jesse loves cookies. He wants the sweetness of all his cookies to be greater than value 'K'.
 To do this, Jesse repeatedly mixes two cookies with the least sweetness. He creates a special combined cookie with:
 

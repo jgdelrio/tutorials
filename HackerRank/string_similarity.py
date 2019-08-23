@@ -1,4 +1,6 @@
 """
+Algorithms > Strings
+
 Calculate the string similarity:
 For a given string (ex: abaab) taking substring starting from the end ('b', 'ab', 'aab', 'baab' and 'abaab')
 sum the number of characters of the substring that are equal to the beginning of the initial string not 
@@ -9,13 +11,16 @@ In the previous example that will be:
 - [0, 2, 1, 0, 5]  -->  Similarity = 8
 """
 
-import math
 import os
-import random
-import re
-import sys
 from time import time
 import timeit
+
+TESTS = [('aa', 3),
+         ('ababaa', 11),
+         ('aaaabaaa', 20),
+         ('aapcaaabaaaaapcaaaaaaapcaabbbaapcappppaaaaaaaapcaba', 118),
+         ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+         17589)]
 
 
 # Complete the stringSimilarity function below.
@@ -65,7 +70,7 @@ def string_similarity_2(s):
 
 
 def string_similarity_3(s):
-    """Essay to use chars"""
+    """Using chars..."""
     n = len(s)
     similarity = [0] * n
     similarity[0] = 1
@@ -141,22 +146,11 @@ def test():
 
 
 if __name__ == '__main__':
-
-    entries = [('aa', 3),
-               ('ababaa', 11),
-               ('aaaabaaa', 20),
-               ('aapcaaabaaaaapcaaaaaaapcaabbbaapcappppaaaaaaaapcaba', 118),
-               ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-               17589)]
-
     t0 = time()
-    for e in entries:
+    for e in TESTS:
         s, rst = e
         result = string_similarity(s)
 
         print('Result: {} \t Expected: {}'.format(result, rst))
 
     print('Time: {}'.format(time()-t0))
-
-
-    # test()
