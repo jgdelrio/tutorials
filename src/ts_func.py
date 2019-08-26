@@ -1,3 +1,4 @@
+import re
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -178,3 +179,37 @@ def invert_transformation(df_train, df_forecast, second_diff=False):
         # Roll back 1st Diff
         df_fc[str(col)+'_forecast'] = df_train[col].iloc[-1] + df_fc[str(col)+'_1d'].cumsum()
     return df_fc
+
+
+def add_datepart(df, field_name, drop=True):
+    """Create extra feature in a given dataframe"""
+    if field_name == 'index':
+        fld = pd.Series(df.index)
+        targ_pre = 'date'
+    else:
+        fld = df[field_name]
+        targ_pre = re.sub('[Dd]ate$', '', field_name)
+
+    if not np.issubdtype(fld.dtype, np.datetime64):
+        df[field_name] = fld = pd.to_datetime(fld, infer_datetime_format=True)
+
+    for n in ('Year', 'Month', 'Week', 'Day', 'Dayofweek', 'Dayofyear',
+            'Is_month_end', 'Is_month_start', 'Is_quarter_end', 'Is_quarter_start', 'Is_year_end', 'Is_year_start'):
+        df[targ_pre+n] = [k for k in getattr(fld.dt, n.lower())]
+    df[targ_pre+'Elapsed'] = [k for k in fld.astype(np.int64) // 10**9]
+
+    if drop and field_name != 'index':
+        df.drop(field_name, axis=1, inplace=True)
+
+
+
+if __name__ == '__main__':
+    INPUT_DATA = "../data/raw/nse_TataGlobal.csv"
+    dateparse = lambda dates: pd.datetime.strptime(dates, '%Y-%m-%d')
+    df = pd.read_csv(
+        INPUT_DATA,
+        parse_dates=['Date'],  # specifies the column which contains the date-time information
+        date_parser=dateparse,  # Specifies a function which converts an input string into datetime variable.
+        index_col='Date')
+
+    add_datepart(df, 'index')
