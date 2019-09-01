@@ -46,8 +46,16 @@ Note:
 """
 import os
 
+with open(os.path.abspath(os.path.join('data', 'kundu_and_tree_input08.txt')), 'r') as f:
+    n = int(f.readline())
+    input_data = []
+    for k in range(n-1):
+        line = [int(k) if i < 2 else k[0] for i, k in enumerate(f.readline().split(' '))]
+        input_data.append(line)
+
 # Define input and output
 TEST1 = ([[1, 2, 'b'], [2, 3, 'r'], [3, 4, 'r'], [4, 5, 'b']], 4)
+TEST2 = (input_data, 994774931)
 
 
 class DisjointSet:
@@ -140,7 +148,8 @@ def count_triplets(tree, color='r'):
         # subtract all triplets build from 2 vertices of the components and 1 other vertex
         valid_triplets -= possible_pairs(c.size) * (n - c.size)
 
-    return int(valid_triplets % (10e9 + 7))
+    rst = int(valid_triplets % (10e9 + 7))
+    return rst
 
 
 def to_int(x):
@@ -165,7 +174,7 @@ def hackerrank_run():
 
 
 def test():
-    data = TEST1
+    data = TEST2
     tree = data[0]
     output = data[1]
 
