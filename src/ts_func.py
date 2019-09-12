@@ -1,26 +1,35 @@
+import re
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.tsa.stattools import adfuller, grangercausalitytests
 from statsmodels.tsa.vector_ar.vecm import coint_johansen
+from statsmodels.stats.stattools import durbin_watson
 
 
-def test_stationarity(timeseries, window=12, graph=True, verbose=True):
+def adjust(val, length=6):
+    return str(val).ljust(length)
+
+
+def test_stationarity(ts, window=12, autolag='AIC', signif=0.05,
+                      name='', graph=True, verbose=True):
     """
-    Verify the Stationarity of a Time Series
-    :param timeseries: Time Series
+    Verify the stationarity of a Time Series
+    :param ts: Time Series
     :param window:     window required (ex: 12 months)
+    :param autolag:    parameter of the Dickey-Fuller test (adfuller function)
+    :param name:       name of the series (optional)
     :param graph:      (boolean) plot the resulting graph
     :param verbose:    (boolean) verbose mode
     :return:           dataframe with the information generated (statistics, p-value, #lags, etc)
     """
     # Determing rolling statistics
-    rolmean = timeseries.rolling(window).mean()
-    rolstd = timeseries.rolling(window).std()
+    rolmean = ts.rolling(window).mean()
+    rolstd = ts.rolling(window).std()
 
     if graph:
         # Plot rolling statistics:
-        orig = plt.plot(timeseries, color='blue', label='Original')
+        orig = plt.plot(ts, color='blue', label='Original')
         mean = plt.plot(rolmean, color='red', label='Rolling Mean')
         std = plt.plot(rolstd, color='black', label='Rolling Std')
         fig = plt.gcf()
@@ -30,7 +39,12 @@ def test_stationarity(timeseries, window=12, graph=True, verbose=True):
         plt.show(block=False)
 
     # Perform Dickey-Fuller test:
-    dftest = adfuller(timeseries, autolag='AIC')
+    dftest = adfuller(ts, autolag=autolag)
+    output = {'test_statistic': round(dftest[0], 4),
+              'pvalue': round(dftest[1], 4),
+              'n_lags': round(dftest[2], 4),
+              'n_obs': dftest[3]}
+    p_value = output['pvalue']
 
     dfoutput = pd.Series(dftest[0:4],
                          index=['Test Statistic', 'p-value', '#Lags Used', 'Number of Observations Used'])
@@ -39,14 +53,22 @@ def test_stationarity(timeseries, window=12, graph=True, verbose=True):
         dfoutput['Critical Value (%s)' % key] = value
 
     if verbose:
-        print('Results of Dickey-Fuller Test:')
+        print(f'    Augmented Dickey-Fuller Test on "{name}"', "\n", '-' * 47)
         print(dfoutput)
+
+        print(f"Significance Level: {signif}")
+        if p_value <= signif:
+            print(f" => P-Value = {p_value}. Rejecting Null Hypothesis.")
+            print(f" => Series is Stationary.")
+        else:
+            print(f" => P-Value = {p_value}. Weak evidence to reject the Null Hypothesis.")
+            print(f" => Series is Non-Stationary.")
 
     return dfoutput
 
 
 def approximate_entropy(U, m, r):
-    """Compute Aproximate entropy"""
+    """Compute aproximate-entropy"""
     def _maxdist(x_i, x_j):
         return max([abs(ua - va) for ua, va in zip(x_i, x_j)])
 
@@ -112,3 +134,82 @@ def cointegration_test(df, alpha=0.05, verbose=True):
     return dfoutput
 
 
+def durbin_watson_statistic(model, columns=None, verbose=True):
+    """
+    This is  used to check if there is any leftover pattern in the residuals (errors).
+    Check for Serial Correlation of Residuals (Errors) using Durbin Watson Statistic (DW).
+
+    Basically if there is any correlation left in the residuals, then there is some pattern in the
+    time series that is still left to be explained by the model. In that case, the typical course
+    of action is to either increase the order of the model or induce more predictors into the system
+    or look for a different algorithm to model the time series.
+
+    DW can vary from 0 to 4:
+    - close to 2: then there is no significant serial correlation
+    - close to 0: positive serial correlation
+    - close to 4: negative serial correlation
+
+    :param model: model already fitted
+    :return:
+
+    """
+    out = durbin_watson(model.resid)
+
+    if verbose:
+        if columns is None:
+            print(f"Please specify the list of columns in which the model was fitted")
+        else:
+            if not isinstance(columns, (list, pd.core.indexes.base.Index)):
+                raise TypeError(f"columns must be a list")
+            for col, val in zip(columns, out):
+                print(adjust(col), ':', round(val, 3))
+
+    return out
+
+
+def invert_transformation(df_train, df_forecast, second_diff=False):
+    """Revert back the differencing to get the forecast to original scale."""
+    df_fc = df_forecast.copy()
+    columns = df_train.columns
+
+    for col in columns:
+        # Roll back 2nd Diff
+        if second_diff:
+            df_fc[str(col)+'_1d'] = (df_train[col].iloc[-1]-df_train[col].iloc[-2]) + df_fc[str(col)+'_2d'].cumsum()
+        # Roll back 1st Diff
+        df_fc[str(col)+'_forecast'] = df_train[col].iloc[-1] + df_fc[str(col)+'_1d'].cumsum()
+    return df_fc
+
+
+def add_datepart(df, field_name, drop=True):
+    """Create extra feature in a given dataframe"""
+    if field_name == 'index':
+        fld = pd.Series(df.index)
+        targ_pre = 'date'
+    else:
+        fld = df[field_name]
+        targ_pre = re.sub('[Dd]ate$', '', field_name)
+
+    if not np.issubdtype(fld.dtype, np.datetime64):
+        df[field_name] = fld = pd.to_datetime(fld, infer_datetime_format=True)
+
+    for n in ('Year', 'Month', 'Week', 'Day', 'Dayofweek', 'Dayofyear',
+            'Is_month_end', 'Is_month_start', 'Is_quarter_end', 'Is_quarter_start', 'Is_year_end', 'Is_year_start'):
+        df[targ_pre+n] = [k for k in getattr(fld.dt, n.lower())]
+    df[targ_pre+'Elapsed'] = [k for k in fld.astype(np.int64) // 10**9]
+
+    if drop and field_name != 'index':
+        df.drop(field_name, axis=1, inplace=True)
+
+
+
+if __name__ == '__main__':
+    INPUT_DATA = "../data/raw/nse_TataGlobal.csv"
+    dateparse = lambda dates: pd.datetime.strptime(dates, '%Y-%m-%d')
+    df = pd.read_csv(
+        INPUT_DATA,
+        parse_dates=['Date'],  # specifies the column which contains the date-time information
+        date_parser=dateparse,  # Specifies a function which converts an input string into datetime variable.
+        index_col='Date')
+
+    add_datepart(df, 'index')
