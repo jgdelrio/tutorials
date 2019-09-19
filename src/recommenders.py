@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -81,8 +82,12 @@ def get_topn(x, topn=5, field='name'):
 class ContentRecommender():
     def __init__(self, **kargs):
         self.cosine_sim = None
-        self.indices = None
+        self.indices = None         # series with the item IDs as index and the original index as value
+        self.report_scores = True
         self.topn = 10
+        self.train_time = None
+        self.rec_time = None
+
         for ar in kargs.keys():
             if ar in self.__dict__:
                 setattr(self, ar, kargs[ar])
@@ -90,6 +95,7 @@ class ContentRecommender():
                 raise KeyError('Unknown parameter')
 
     def train(self, df, id_field, desc_field):
+        t0 = time.time()
         # Define a TF-IDF Vectorizer Object and remove all english stop words such as 'the', 'a'
         tfidf = TfidfVectorizer(stop_words='english')
 
@@ -105,66 +111,81 @@ class ContentRecommender():
         del tfidf_matrix
 
         # Reverse map of indices and movie titles
-        self.indices = pd.Series(df.index, index=df[id_field]).drop_duplicates()
+        unique_ids, idx_unique = np.unique(df[id_field].values, axis=0, return_index=True)
 
-    def get_recommendations(self, item, topn=None):
+        self.indices = pd.Series(idx_unique, index=unique_ids).drop_duplicates()
+        self.train_time = time.time() - t0
+
+    def get_recommendations(self, item, topn=None, report_scores=None):
         """Takes in movie title as input and outputs most similar movies"""
         clean = True
-        if topn is None:
-            topn = self.topn
-
-        if not isinstance(item, list):
-            item = [item]
-            clean = False
-        sim_scores = list()
-
-        index_list = []
-        for t in item:
-            # Get the index of the movie that matches the title/item
-            if t in self.indices:
-                index_list.append(self.indices[t])
-            else:
-                index_list.append(None)
-
-        for idx in index_list:
-            if idx is not None:
-                # Get the pairwise similarity scores of all movies with that movie
-                mov_list = list(enumerate(self.cosine_sim[idx]))
-                mov_list = [e for e in mov_list if e[1] not in index_list]    # Ignore itself
-                sim_scores.extend(mov_list)
-
-        # clean repetitions
-        if clean:
-            ref = [x[1] for x in sim_scores]
-            unique_ref = []
-            n = len(ref)
-            for idx, r in enumerate(ref[::-1]):
-                if r not in unique_ref:
-                    unique_ref.append(r)
-                else:
-                    sim_scores.pop(n - idx - 1)
-
-        # Sort the movies based on the similarity scores
-        sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
-
-        # Get the scores of the 10 most similar movies
-        sim_scores = sim_scores[:(topn + 1)]
-
-        # Get the movie indices
-        movie_indices = [i[0] for i in sim_scores]
-
-        # Return the topn most similar movies
-        return self.indices[self.indices.isin(movie_indices)].index.tolist()
-
-    def recommend_df(self, df_scores, user_field, item_field, topn=None):
         if topn is not None:
             self.topn = topn
-        x_gr = df_scores.groupby([user_field])[item_field].apply(lambda x: sorted(list(x)))
-        rec = pd.DataFrame({'user': x_gr.index.tolist()})
-        rec['recommedation'] = x_gr.apply(self.get_recommendations)
+        if report_scores is not None:
+            self.report_scores = report_scores
+
+        if not isinstance(item, (list, np.ndarray)):
+            item = [item]
+            clean = False
+
+        index_list = np.empty(item.size, dtype=np.int16, order='C')
+        index_list.fill(-1)
+
+        for idx, t in enumerate(item):
+            # Get the index of the movie/s that matches the title/item
+            if t in self.indices.index:
+                index_list[idx] = self.indices[t]
+        # Eliminate -1 entries
+        index_list = index_list[~np.isin(index_list, -1)]
+
+        n = self.cosine_sim.shape[0]
+        sim_index = np.empty((1, n * index_list.size), dtype=int, order='C')
+        sim_index.fill(-1)
+        sim_scores = np.empty((1, n * index_list.size), dtype=np.float, order='C')
+        base = 0
+        for p, idx in enumerate(index_list):
+            # Get the pairwise similarity scores of all movies with that movie
+            mov_inx = np.arange(0, n, 1)
+            mov_list = self.cosine_sim[idx]
+            mask = np.isin(mov_inx, index_list)
+            if np.sum(mask) > 0:
+                # eliminate items already in the user knowledge/seen
+                mov_inx[mask] = -1
+                mov_list[mask] = -1
+            sim_index[0, base:base+n] = mov_inx
+            sim_scores[0, base:base+n] = mov_list
+            base = n
+
+        if clean:
+            # clean repetitions
+            sim_index, index = np.unique(sim_index, axis=0, return_index=True)
+            sim_scores = sim_scores[index]
+
+        # Sort the movies based on the similarity scores
+        sorting_idx = (-sim_scores).argsort()
+
+        # Top n scores
+        top_scores = sim_scores[0, sorting_idx][0, :self.topn]
+        top_index = sim_index[0, sorting_idx][0, :self.topn]
+
+        # Get the item original reference
+        orig_ref = self.indices[self.indices.isin(top_index)]
+
+        # Return the topn most similar movies (ref, score)
+        if self.report_scores:
+            return np.array([orig_ref.index, top_scores])
+        else:
+            return np.array(orig_ref.index)
+
+    def recommend_df(self, df_scores, user_field, item_field, topn=None):
+        t0 = time.time()
+        if topn is not None:
+            self.topn = topn
+        x_gr = df_scores.groupby([user_field])[item_field].apply(lambda x: np.sort(np.array(x)))
+        rec = x_gr.apply(self.get_recommendations)
+        self.rec_time = time.time() - t0
         return rec
 
 
 if __name__ == '__main__':
     content_rec = ContentRecommender(topn=20)
-    pass
