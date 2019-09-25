@@ -1,4 +1,6 @@
 import time
+import random
+
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -79,22 +81,118 @@ def get_topn(x, topn=5, field='name'):
     return []
 
 
+def set_kargs(obj, **kargs):
+    """
+    Provided an object and a dictionary or arguments,
+    tries to set the specified arguments into the object"""
+    for ar in kargs.keys():
+        if ar in obj.__dict__:
+            setattr(obj, ar, kargs[ar])
+        else:
+            raise KeyError('Unknown parameter')
+
+
+def weighted_rating(df, mean_vote_field=None, vote_count_field=None,
+                    id_field=None, quantile=0.90, weighted_field='w_score'):
+    # calculate total mean vote across all items
+    mean_vote = df[mean_vote_field].mean()
+    # minimun amount of votes to be considered
+    m = df[vote_count_field].quantile(quantile)
+
+    def item_weighted_rating(x, m=m, mean_vote=mean_vote):
+        # votes per item
+        n_votes = x[vote_count_field]
+        # average of votes per article
+        vote_av = x[mean_vote_field]
+        # Calculation based on the IMDB formula
+        return (n_votes/(n_votes + m) * vote_av) + (m/(m + n_votes) * mean_vote)
+
+    df[weighted_field] = df.apply(item_weighted_rating, axis=1)
+
+
+class MostPopular:
+    def __init__(self, **kargs):
+        self.topn = 10
+        self.samples = 100
+        self.most_popular = None
+        self.fit_time = None
+        self.predict_time = None
+        set_kargs(self, **kargs)
+
+    def fit(self, df, id_field, scores_field=None,
+            vote_count=None, vote_mean=None, is_catalogue=True, weighted=True):
+        """
+        Fit method to calculate the Most Popular items based on a catalogue or a list of scores
+        :param df: Pandas DataFrame that can be a catalogue or a list of scores
+        :param id_field:     field name of the IDs
+        :param scores_field: field name of the scores
+        :param vote_count:   field name of the vote count if a catalogue of items is provided
+        :param vote_mean:    field name of the mean of the vote if a catalogue of items is provided
+        :param is_catalogue: (boolean) True by default
+        :param weighted: (boolean) True by default. Apply weights to the scores
+        :return:
+        """
+        t0 = time.time()
+        weighted_field = 'w_score'
+        if is_catalogue:
+            # Catalogue type. Expected to contain for each item
+            # the vote_count and the vote_mean
+            if vote_count is None or vote_mean is None:
+                raise ValueError("'vote_count' and 'vote_mean' must be defined")
+            catalogue = df
+
+        else:
+            # List of scores type. Proceed to calculate the vote count
+            # and the vote mean
+            if scores_field is None:
+                raise ValueError("'scores_field' must be defined")
+            grp_count = df[[id_field,
+                            scores_field]].groupby(id_field)[scores_field].count().reset_index()
+            grp_count.columns = [id_field, 'vote_count']
+            grp_count['vote_mean'] = df[[id_field,
+                                         scores_field]].groupby(id_field)[scores_field].mean().values
+            vote_mean = 'vote_mean'
+            vote_count = 'vote_count'
+            catalogue = grp_count
+
+        if weighted:
+            weighted_rating(catalogue, mean_vote_field=vote_mean, vote_count_field=vote_count,
+                            weighted_field=weighted_field)
+            score_for_most_popular = weighted_field
+        else:
+            score_for_most_popular = vote_mean
+
+        self.most_popular = catalogue.sort_values(
+            score_for_most_popular,
+            ascending=False)[[id_field, score_for_most_popular]][:self.samples]
+
+        self.fit_time = time.time() - t0
+
+    def predict(self, topn=None, rdn=False):
+        if topn:
+            self.topn = topn
+        if rdn:
+            sample = random.sample(range(self.samples), self.topn)
+            return self.most_popular.iloc[sample, :]
+        else:
+            return self.most_popular[:self.topn]
+
+
 class ContentRecommender():
     def __init__(self, **kargs):
         self.cosine_sim = None
         self.indices = None         # series with the item IDs as index and the original index as value
         self.report_scores = True
         self.topn = 10
-        self.train_time = None
-        self.rec_time = None
+        self.fit_time = None
+        self.predict_time = None
+        set_kargs(self, **kargs)
 
-        for ar in kargs.keys():
-            if ar in self.__dict__:
-                setattr(self, ar, kargs[ar])
-            else:
-                raise KeyError('Unknown parameter')
-
-    def train(self, df, id_field, desc_field):
+    def fit(self, df, id_field=None, desc_field=None):
+        if df is None:
+            raise ValueError("'df' must contain a valid Pandas DataFrame")
+        if any([k is None for k in [id_field, desc_field]]):
+            raise ValueError("Please provide the parameters 'id_field' and 'desc_field'")
         t0 = time.time()
         # Define a TF-IDF Vectorizer Object and remove all english stop words such as 'the', 'a'
         tfidf = TfidfVectorizer(stop_words='english')
@@ -114,15 +212,11 @@ class ContentRecommender():
         unique_ids, idx_unique = np.unique(df[id_field].values, axis=0, return_index=True)
 
         self.indices = pd.Series(idx_unique, index=unique_ids).drop_duplicates()
-        self.train_time = time.time() - t0
+        self.fit_time = time.time() - t0
 
-    def get_recommendations(self, item, topn=None, report_scores=None):
+    def predict_user(self, item):
         """Takes in movie title as input and outputs most similar movies"""
         clean = True
-        if topn is not None:
-            self.topn = topn
-        if report_scores is not None:
-            self.report_scores = report_scores
 
         if not isinstance(item, (list, np.ndarray)):
             item = [item]
@@ -177,13 +271,26 @@ class ContentRecommender():
         else:
             return np.array(orig_ref.index)
 
-    def recommend_df(self, df_scores, user_field, item_field, topn=None):
+    def predict(self, df, user_field, item_field, topn=None, report_scores=None):
+        """
+        Predict method. Provided a DataFrame with user IDs and itemIDs returns the suggestions
+        of items that that particular user/s hasn't discovered yet.
+        :param df:            Pandas DataFrame
+        :param user_field:    user field name
+        :param item_field:    item field name
+        :param topn:          number of items to return (typically 10)
+        :param report_scores: (boolean) if the output must contain scores for the items returned
+        :return:              recommendations for each user
+        """
         t0 = time.time()
         if topn is not None:
             self.topn = topn
-        x_gr = df_scores.groupby([user_field])[item_field].apply(lambda x: np.sort(np.array(x)))
-        rec = x_gr.apply(self.get_recommendations)
-        self.rec_time = time.time() - t0
+        if report_scores is not None:
+            self.report_scores = report_scores
+            
+        x_gr = df.groupby([user_field])[item_field].apply(lambda x: np.sort(np.array(x)))
+        rec = x_gr.apply(self.predict_user)
+        self.predict_time = time.time() - t0
         return rec
 
 
