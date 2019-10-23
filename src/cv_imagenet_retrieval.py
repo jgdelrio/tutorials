@@ -115,13 +115,13 @@ for progress in range(50):  # store all the images on a directory
         except:
             None
 
-print("\nTRAIN:\n")
-print("\nlist the files inside ships directory:\n")
-!ls / content / train / ships  # list the files inside ships
-print("\nlist the files inside bikes directory:\n")
-!ls / content / train / bikes  # list the files inside bikes
-print("\nVALIDATION:\n")
-print("\nlist the files inside ships directory:\n")
-!ls / content / validation / ships  # list the files inside ships
-print("\nlist the files inside bikes directory:\n")
-!ls / content / validation / bikes  # list the files inside bikes
+# print("\nTRAIN:\n")
+# print("\nlist the files inside ships directory:\n")
+# !ls / content / train / ships  # list the files inside ships
+# print("\nlist the files inside bikes directory:\n")
+# !ls / content / train / bikes  # list the files inside bikes
+# print("\nVALIDATION:\n")
+# print("\nlist the files inside ships directory:\n")
+# !ls / content / validation / ships  # list the files inside ships
+# print("\nlist the files inside bikes directory:\n")
+# !ls / content / validation / bikes  # list the files inside bikes
