@@ -1,0 +1,4 @@
+# Ignore config files
+*.csv
+*.yml
+word2vecformat-glove.6B.300d.txt
