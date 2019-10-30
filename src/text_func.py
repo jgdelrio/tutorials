@@ -30,50 +30,34 @@ tag_dict_textblob = {"J": 'a',
 
 def text_replacements(text):
     text = text.lower()
-    text = text.replace(r"i'm ", "i am ")
-    text = text.replace(r"he's ", 'he is ')
-    text = text.replace(r"she's ", 'she is ')
-    text = text.replace(r"it's ", 'it is ')
-    text = text.replace(r"\'s", ' ')
-    text = text.replace(r"d\''", '')
-    text = text.replace(r"\'ve ", " have ")
-    text = text.replace(r"can't ", "cannot ")
-    text = text.replace(r"what's ", "what is ")
-    text = text.replace(r"£", "pound")
-    text = text.replace(r"€", "euro")
-    text = text.replace("\n", " ")
 
-    text = text.replace("u.s.", "united states")
-    text = text.replace(" ec ", " european community ")
-    text = text.replace(" dlrs", " dollars")
-    text = text.replace(" mln", " million")
-    text = text.replace(" pct", " percentage")
-    text = text.replace(" x ", " ")
-    text = text.replace(" e ", " ")
-    text = text.replace(" e.", " ")
-    text = text.replace("1st ", "first ")
-    text = text.replace("2nd ", "second ")
-    text = text.replace("qtr", "quarter")
-    text = text.replace("cts", "cents")
-    text = text.replace("shr", "share")
-    text = text.replace(" vs ", " versus ")
-    text = text.replace(" inc ", " incorporated ")
-    text = text.replace(" ltd ", " limited ")
-    text = text.replace(" &lt", " limited")
-    text = text.replace("wk", "week")
-    text = text.replace("prev ", "previous ")
+    replacements_set1 = [(r"i'm ", "i am "), (r"he's ", 'he is '), (r"she's ", 'she is '),
+                         (r"it's ", 'it is '), (r"\'s", ' '), (r"\'ve ", " have "),
+                         (r"d\''", ''), (r"can't ", "cannot "), (r"what's ", "what is "),
+                         ("\n", " "), (" x ", " "), (" e ", " "), (" e.", " ")]
 
-    text = re.sub(r"[^A-Za-z0-9^,!.\/'+-=]", " ", text)
-    text = re.sub(r"\'", " ", text)
-    text = re.sub(r"@", " ", text)
-    text = re.sub(r" n't ", " not ", text)
-    text = re.sub(r"\'re", " are ", text)
-    text = re.sub(r"\'d", " would", text)
-    text = re.sub(r"let\'s", "let us", text)
-    text = re.sub(r"\'ll", " will ", text)
-    text = re.sub(r"y\'all", "you all", text)
-    text = re.sub(r" doin\' ", " doing ", text)
-    text = re.sub(r"(\d+)(k)", r"\g<1>000", text)
+    replacements_set2 = [("u.s.", "united states"), (" ec ", " european community "),
+                         (r"£", "pound"), (r"€", "euro"), (" dlrs", " dollars"),
+                         (" mln", " million"), (" pct", " percentage")]
+
+    replacements_set3 = [("1st ", "first "), ("2nd ", "second "), ("3rd ", "third "),
+                         ("qtr", "quarter"), ("cts", "cents"), ("shr", "share"),
+                         (" vs ", " versus "), (" inc ", " incorporated "), (" ltd ", " limited "),
+                         (" &lt", " limited"), ("wk", "week"), ("prev ", "previous ")]
+
+    replacements = [*replacements_set1, *replacements_set2, *replacements_set3]
+
+    for rpl in replacements:
+        text = text.replace(rpl[0], rpl[1])
+
+    subs_set = [(r"[^A-Za-z0-9^,!.\/'+-=]", " "), (r"\'", " "), (r"@", " "), (r" n't ", " not "),
+                (r"\'re", " are "), (r"\'d", " would"), (r"let\'s", "let us"),
+                (r"\'ll", " will "), (r"y\'all", "you all"), (r" doin\' ", " doing "),
+                (r"(\d+)(k)", r"\g<1>000")]
+
+    for sub in subs_set:
+        text = re.sub(sub[0], sub[1], text)
+
     # Extend with other cleaning text operations...
     return text
 
@@ -135,3 +119,22 @@ def lemmatize_doc(text, lemmatizer='nltk'):
         lemmatized_list = [wd.lemmatize(tag) for wd, tag in words_and_tags]
         return " ".join(lemmatized_list)
 
+
+def words_abbreviation(words, split_by=r"[ \-,;:]"):
+    """Build some abbreviations from a list or words"""
+    if not isinstance(words, str):
+        raise TypeError("The parameter 'word' must be a string")
+    split_regex = re.compile(split_by)
+    splitted = split_regex.split(words)
+    if len(splitted) == 1:
+        return splitted[0][:2].upper()
+    else:
+        return "".join([k[0].upper() for k in splitted])
+
+
+def list_abbreviations(word_list, split_by=None):
+    if not isinstance(word_list, list):
+        raise TypeError("The parameter 'word_list' must be a list")
+    if split_by:
+        return [words_abbreviation(m, split_by=split_by) for m in word_list]
+    return [words_abbreviation(m) for m in word_list]
