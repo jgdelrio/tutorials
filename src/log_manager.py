@@ -46,7 +46,7 @@ class MyFormatter(logging.Formatter):
 
 
 class Logger:
-    def __init__(self, module_name, filename, level=None, verbose=False):
+    def __init__(self, module_name, filename, file_path=None, level=None, verbose=False):
         global loggers
 
         # Initial module name and level
@@ -61,13 +61,16 @@ class Logger:
         if loggers.get(module_name):
             self.logger = loggers.get(module_name)
         else:
+            logging
             self.logger = logging.getLogger(module_name)
-            logging.basicConfig(level=level)
-            self.file_logger = self.save_file(filename)
+            self.logger._warn_preinit_stderr = 0
+            self.logger.setLevel(eval("logging." + level))
+            # create file handler which logs even debug messages
+            self.file_logger = self.save_file(filename, file_path)
             loggers[module_name] = self.logger
 
-    def save_file(self, file_name=None):
-        file_logger = FileLogger(self.logger, file_name)
+    def save_file(self, file_name=None, file_path=None):
+        file_logger = FileLogger(self.logger, file_name, file_path)
         return file_logger
 
     def debug(self, msg):
