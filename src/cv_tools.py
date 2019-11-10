@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from math import ceil
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import ImageGrid
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
@@ -96,3 +97,66 @@ def equalizer_augmentation(images, labels, label, batch=64):
     total_images = np.concatenate([images, images_generated], axis=0)
     total_labels = np.concatenate([labels['class'].values, labels_generated], axis=0)
     return total_images, total_labels
+
+
+def plot_filters(model, layer=None, ncols=6):
+    layer_names = [(idx, k.name) for idx, k in enumerate(model.layers) if "conv2d" in k.name]
+    if layer is None:
+        idx, layer = layer_names[-1]
+    else:
+        check_names = [(idx, k.name) for idx, k in enumerate(model.layers) if layer in k.name]
+        if len(check_names) > 0:
+            idx, layer = check_names[0]
+        else:
+            raise ValueError(f"The layer {layer} was not found")
+    try:
+        nrows = ceil(model.layers[idx].get_weights()[0].shape[-1] / ncols)
+    except:
+        nrows = ceil(model.layers[idx].get_weights().shape[-1] / ncols)
+
+    i = 0
+    fig, ax = plt.subplots(nrows, ncols, sharex=True, sharey=True)
+    for row in range(nrows):
+        for col in range(ncols):
+            ax[row, col].imshow(model.layers[idx].get_weights()[0][:, :, row, col])
+            ax[row, col].set_title(
+                f"fltr:{i}")
+            i += 1
+    fig.set_figheight(8)
+    fig.set_figwidth(15)
+
+
+def display_features(features, index, col_size, row_size=None,
+                     fig_height=8, fig_width=15, cmap=None, limit=300):
+    """
+    Plot the features of a tensorflow activation model
+    :param features:
+    :param index:
+    :param col_size:
+    :param row_size:
+    :param fig_height:
+    :param fig_width:
+    :param cmap: e.x. 'gray'
+    :return:
+    """
+    feature = features[index]
+    max_idx = feature.shape[-1]
+    if row_size is None:
+        row_size = ceil(max_idx / col_size)
+    if cmap is None:
+        fig_params = {}
+    else:
+        fig_params = {"cmap": cmap}
+
+    feature_index = 0
+    fig, ax = plt.subplots(row_size, col_size, figsize=(row_size*2.5, col_size*1.5))
+    for row in range(0, row_size):
+        if feature_index == max_idx:
+            break
+        for col in range(0, col_size):
+            imag = feature[0, :, :, feature_index]
+            ax[row][col].imshow(imag, **fig_params)
+            feature_index += 1
+
+    fig.set_figheight(fig_height)
+    fig.set_figwidth(fig_width)
