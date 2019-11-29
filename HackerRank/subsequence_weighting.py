@@ -33,26 +33,54 @@ TEST1 = ([1, 2, 3, 4], [10, 20, 30, 40], 100)
 TEST2 = ([1, 2, 3, 4, 1, 2, 3, 4], [10, 20, 30, 40, 15, 15, 15, 50], 110)
 TEST3 = ([1, 2, 3, 4, 2, 3, 4, 1, 2], [1, 1, 1, 1, 5, 1, 1, 9, 8], 17)
 
-TESTS = [TEST1, TEST2, TEST3]
+TESTS = [TEST2, TEST1, TEST3]
+
+
+def solve0(array, weights):
+    sequence = [(0, 0)]
+    for ref, weight in zip(array, weights):
+        if ref > sequence[-1][0]:
+            # We can add the element to the subsequence
+            sequence.append((ref, sequence[-1][1] + weight))
+        elif weight > sequence[-1][1]:
+            # The previous subsequence doesn't matter as this weight is already bigger
+            sequence = [(ref, weight)]
+        else:
+            # We must select if to keep part of the previous subseq or make a new one
+            idx = 0
+            while sequence[idx][0] < ref:
+                idx += 1
+            new_accum_weight = sequence[idx-1][1] + weight
+            if new_accum_weight > sequence[-1][1]:
+                sequence = sequence[:idx]
+                sequence.append((ref, new_accum_weight))
+    return sequence[-1][1]
 
 
 def solve(array, weights):
-    subsequence = [0]
-    subseq_w = [0]
-    for idx, weight in enumerate(weights):
-        if array[idx] > subsequence[-1]:
-            subsequence.append(array[idx])
-            subseq_w.append(weight)
-        elif weight > sum(subseq_w):
-            subsequence = [array[idx]]
-            subseq_w = [weight]
+    values, accu = [0], [0]
+    for ref, weight in zip(array, weights):
+        if ref > values[-1]:
+            # We can add the element to the subsequence
+            values.append(ref)
+            accu.append(accu[-1] + weight)
+        elif weight > accu[-1]:
+            # The previous subsequence doesn't matter as this weight is already bigger
+            values, accu = [ref], [weight]
         else:
-            new_subseq = [k for k in subsequence if k < array[idx]]
-            if sum(subseq_w[:len(new_subseq)]) + weight > sum(subseq_w):
-                subsequence = new_subseq
-                subseq_w = [*subseq_w[:len(new_subseq)], weight]
-
-    return sum(subseq_w)
+            # We must select if to keep part of the previous subseq or make a new one
+            try:
+                idx = values.index(ref)
+            except:
+                idx = 0
+                while values[idx] < ref:
+                    idx += 1
+            new_accum = accu[idx-1] + weight
+            if new_accum > accu[-1]:
+                values, accu = values[:idx], accu[:idx]
+                values.append(ref)
+                accu.append(new_accum)
+    return accu[-1]
 
 
 def hackerrank_run():
@@ -68,16 +96,20 @@ def hackerrank_run():
 
 
 def test():
-    repeat = int(1e5)
+    repeat = int(1e3)
+    # 0.00317  0.0095
+    # 0.0027   0.0082
+    # 0.0021   0.0065
     tt = []
-    for current_test in TESTS:
-        a, w, output = current_test
+    for r in range(repeat):
+        for current_test in TESTS:
+            a, w, output = current_test
 
-        # for r in range(repeat):
-        t0 = time()
-        result = solve(a, w)
-        tt.append(time() - t0)
-        print(f"Pass: {result==output}\tResult: {result}\tExpected: {output}")
+            # for r in range(repeat):
+            t0 = time()
+            result = solve(a, w)
+            tt.append(time() - t0)
+            print(f"Pass: {result==output}\tResult: {result}\tExpected: {output}")
     print(f'Av time: {sum(tt) / len(TESTS)}')
     print(f'Total time: {sum(tt)}')
 
