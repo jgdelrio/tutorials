@@ -2,6 +2,7 @@
 WIDER Face & Person Challenge dataset:
     - https://competitions.codalab.org/competitions/20146#participate
     - http://shuoyang1213.me/WIDERFACE/
+    - https://github.com/the-house-of-black-and-white/morghulis
 """
 import os
 import shutil
@@ -322,7 +323,7 @@ def transform_wider_set_to_voc(img_sets=None,
             os.mkdir(folder)
 
     if img_sets is None:
-        img_sets = ["train", "test", "val"]
+        img_sets = ["train", "val"]
     for img_set in img_sets:
         convert_to_yolo = False
         convert_to_voc = True
