@@ -73,7 +73,7 @@ def getPointsFromPoint(N, arr, point):
 
 
 def solveCastleGrid(N, arr, start, end):
-    q = deque([start])
+    q = deque([start])          # double-ended queue
     arr[start.x][start.y] = 0
 
     while q:
