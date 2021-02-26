@@ -1,4 +1,4 @@
-aiohttp==3.6.1
+aiohttp==3.7.4
 Cython==0.29.13
 elasticsearch==7.0.0
 hdbscan==0.8.23
